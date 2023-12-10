@@ -1,0 +1,24 @@
+{
+  "name": "rescript-graphqljs",
+  "version": "0.1.0",
+  "description": "Rescript wrapper over graphqljs library",
+  "main": "./src/Graphql.res",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "rescript",
+    "graphql",
+    "graphqljs"
+  ],
+  "scripts": {
+    "dev": "rescript build -w",
+    "build": "rescript build"
+  },
+  "author": "mishaszu",
+  "license": "Apache License, Version 2.0",
+  "peerDependencies": {
+    "graphql": "^16.8.1",
+    "rescript": "^10.1.4"
+  }
+}
