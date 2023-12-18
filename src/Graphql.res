@@ -1,5 +1,4 @@
 open Helpers
-type t
 
 type graphQLString
 type graphQlObject
@@ -17,142 +16,140 @@ module Input = {
   }
 }
 
-module Model = {
-  type t<'t> = {
-    name: string,
-    description: Js.undefined<string>,
-    interfaces: Js.undefined<unit => array<interface>>,
-    fields: 't,
-  }
-}
+module Types = {
+  type t
 
-module InputTypes = {
-  type t<'a>
+  @module("graphql") external stringType: t = "GraphQLString"
+  @module("graphql") external intType: t = "GraphQLInt"
+  @module("graphql") external floatType: t = "GraphQLFloat"
+  @module("graphql") external idType: t = "GraphQLID"
+  @module("graphql") external booleanType: t = "GraphQLBoolean"
 
-  @module("graphql") @new
-  external newGraphqlObjectType: Model.t<'t> => graphQlObject = "GraphQLObjectType"
-
-  @module("graphql") external stringType: t<string> = "GraphQLString"
-  @module("graphql") external intType: t<int> = "GraphQLInt"
-  @module("graphql") external floatType: t<float> = "GraphQLFloat"
-  @module("graphql") external idType: t<string> = "GraphQLID"
-  @module("graphql") external booleanType: t<bool> = "GraphQLBoolean"
-
-  @module("graphql") @new external required: t<'a> => t<'a> = "GraphQLNonNull"
+  @module("graphql") @new external required: t => t = "GraphQLNonNull"
 }
 
 module Field = {
-  type field2<'a> = {@as("type") type_: InputTypes.t<'a>, description: string}
+  type fields
 
   type resolver<'source, 'args, 'ctx, 'a> = ('source, 'args, 'ctx) => promise<Js.Null.t<'a>>
 
-  type field3<'source, 'args, 'ctx, 'a, 'fieldType> = {
-    @as("type") type_: InputTypes.t<'fieldType>,
+  type field2 = {"type": Types.t, "description": string}
+
+  type field3<'source, 'args, 'ctx, 'a> = {
+    type_: Types.t,
+    description: string,
+    resolve: option<resolver<'source, 'args, 'ctx, 'a>>,
+  }
+
+  type __field3Internal<'source, 'args, 'ctx, 'a> = {
+    @as("type") type_: Types.t,
     description: string,
     resolve: Js.undefined<resolver<'source, 'args, 'ctx, 'a>>,
   }
 
-  type fieldFull<'source, 'args, 'ctx, 'a, 'fieldType> = {
-    @as("type") type_: InputTypes.t<'fieldType>,
+  type fieldFull<'source, 'args, 'ctx, 'a> = {
+    type_: Types.t,
+    description: option<string>,
+    args: option<connectionArgs>,
+    resolve: option<resolver<'source, 'args, 'ctx, 'a>>,
+  }
+
+  type __fieldFullInternal<'source, 'args, 'ctx, 'a> = {
+    @as("type") type_: Types.t,
     description: Js.undefined<string>,
     args: Js.undefined<connectionArgs>,
     resolve: Js.undefined<resolver<'source, 'args, 'ctx, 'a>>,
   }
 
-  type fieldWithArgs<'source, 'args, 'ctx, 'a, 'fieldType> = {
-    @as("type") type_: InputTypes.t<'fieldType>,
-    description: Js.undefined<string>,
-    args: 'args,
-    resolve: resolver<'source, 'args, 'ctx, 'a>,
-  }
+  type t<'source, 'args, 'ctx, 'a> = @unwrap
+  [
+    | #Field2(field2)
+    | #Field3(field3<'source, 'args, 'ctx, 'a>)
+    | #FieldFull(fieldFull<'source, 'args, 'ctx, 'a>)
+  ]
 
-  type type_<'source, 'args, 'ctx, 'a, 'fieldType> =
-    | Field2(field2<'fieldType>)
-    | Field3(field3<'source, 'args, 'ctx, 'a, 'fieldType>)
-    | FieldFull(fieldFull<'source, 'args, 'ctx, 'a, 'fieldType>)
-    | FieldWithArgs(fieldWithArgs<'source, 'args, 'ctx, 'a, 'fieldType>)
-
-  type fieldBuilder<'source, 'args, 'ctx, 'a, 'fieldType> = Js.Dict.t<
-    type_<'source, 'args, 'ctx, 'a, 'fieldType>,
-  >
-
-  let createFields = () => Js.Obj.empty()
-
-  type fieldsDict<'source, 'args, 'ctx, 'a, 'fieldType> = Js.Dict.t<
-    type_<'source, 'args, 'ctx, 'a, 'fieldType>,
-  >
-
-  type fieldCallback<'source, 'args, 'ctx, 'a, 'fieldType> = (
-    graphQlObject,
+  type fieldCallback<'source, 'args, 'ctx, 'a> = (
+    'source,
+    'args,
     'ctx,
-  ) => type_<'source, 'args, 'ctx, 'a, 'fieldType>
+  ) => t<'source, 'args, 'ctx, 'a>
 
-  let addFieldInCallback = (
-    devObj,
-    key: string,
-    cb: fieldCallback<'source, 'args, 'ctx, 'a, 'fieldType>,
-  ) => {
-    let newCb = (obj, context) => {
-      let newField = cb(obj, context)
-      jsUnwrapVariant(newField)
+  let makeField = (key, field: t<_, _, _, _>) => {
+    switch field {
+    | #Field2(f) => jsCreateObj(key, f)
+    | #Field3(f) => {
+        let i = {
+          type_: f.type_,
+          description: f.description,
+          resolve: f.resolve->Js.Undefined.fromOption,
+        }
+        jsCreateObj(key, i)
+      }
+    | #FieldFull(f) => {
+        let i = {
+          type_: f.type_,
+          description: f.description->Js.Undefined.fromOption,
+          args: f.args->Js.Undefined.fromOption,
+          resolve: f.resolve->Js.Undefined.fromOption,
+        }
+        jsCreateObj(key, i)
+      }
     }
-    let keyValue = jsGetObjValueByKey(devObj, key)
-    switch keyValue->Js.Undefined.toOption {
-    | Some(_) => Js.Exn.raiseError(`Field "${key}" already exists`)
-    | None => ()
-    }
-    let newObj = jsCreateObj(key, newCb)
-    Js.Obj.assign(devObj, newObj)
   }
 
-  let fieldInCallbackToResolver = (fields: Js.t<'a>, obj, context) => {
-    let dict = Js.Dict.empty()
+  let dictToObj = (fields: Js.Dict.t<t<_, _, _, _>>) => {
+    let obj = Js.Obj.empty()
     fields
-    ->Js.Obj.keys
-    ->Js.Array2.forEach(key => {
-      switch jsGetObjValueByKey(fields, key)->Js.Undefined.toOption {
-      | Some(value) => dict->Js.Dict.set(key, value(obj, context))
-      | None => ()
-      }
+    ->Js.Dict.entries
+    ->Js.Array2.forEach(((k, f)) => {
+      obj->Js.Obj.assign(makeField(k, f))->ignore
     })
-    dict
+    obj
   }
 
-  let addArg = (devObj, key: string, arg: field2<'a>) => {
-    let keyValue = jsGetObjValueByKey(devObj, key)
-    switch keyValue->Js.Undefined.toOption {
-    | Some(_) => Js.Exn.raiseError(`Arg "${key}" already exists`)
-    | None => ()
-    }
-    let newObj = jsCreateObj(key, arg)
-    Js.Obj.assign(devObj, newObj)
+  let __anythingToField: 'a => fields = %raw("function(fields) { return fields }")
+
+  let make = (fields: Js.Dict.t<t<_, _, _, _>>) => {
+    fields->dictToObj->__anythingToField
   }
 
-  let argsToField = (args: Js.t<'a>) => {
-    let dict = Js.Dict.empty()
-    args
-    ->Js.Obj.keys
-    ->Js.Array2.forEach(key => {
-      switch jsGetObjValueByKey(args, key)->Js.Undefined.toOption {
-      | Some(value) => dict->Js.Dict.set(key, value)
-      | None => ()
-      }
+  let makeCallback = (fields: Js.Dict.t<fieldCallback<_, _, _, _>>, graphqlObj, args, context) => {
+    let obj = Js.Obj.empty()
+    fields
+    ->Js.Dict.entries
+    ->Js.Array2.forEach(((key, field)) => {
+      let field = field(graphqlObj, args, context)
+      obj->Js.Obj.assign(makeField(key, field))->ignore
     })
-    dict
+    obj
+  }
+}
+
+module Model = {
+  type m = {
+    "name": string,
+    "description": option<string>,
+    "interfaces": option<unit => array<interface>>,
+    "fields": Field.fields,
   }
 
-  let addField = (devObj, key: string, field: type_<'source, 'args, 'ctx, 'a, 'fieldType>) => {
-    let keyValue = jsGetObjValueByKey(devObj, key)
-    switch keyValue->Js.Undefined.toOption {
-    | Some(_) => Js.Exn.raiseError(`Field "${key}" already exists`)
-    | None => ()
-    }
-    let field = jsUnwrapVariant(field)
-    let newObj = jsCreateObj(key, field)
-    Js.Obj.assign(devObj, newObj)
+  type t = {
+    name: string,
+    description: Js.undefined<string>,
+    interfaces: Js.undefined<unit => array<interface>>,
+    fields: Field.fields,
   }
 
-  let fieldToResolver = argsToField
+  @module("graphql") @new
+  external newGraphqlObjectType: t => graphQlObject = "GraphQLObjectType"
+
+  let make = model =>
+    newGraphqlObjectType({
+      name: model["name"],
+      description: model["description"]->Js.Undefined.fromOption,
+      interfaces: model["interfaces"]->Js.Undefined.fromOption,
+      fields: model["fields"],
+    })
 }
 
 module Query = {
