@@ -2,41 +2,51 @@
 
 open Graphql
 
-let fields = {
+type testFields = {
+  id: string,
+  name: string,
+  age: int,
+}
+
+let fields: Graphql.Field.t<unit, unit, unit, testFields> = {
   open Graphql.Field
   empty()
   ->addField(
     "id",
-    #Field2({
+    {
       type_: Types.idType,
       description: "my field id",
-    }),
+    }->#Field2,
   )
   ->addField(
     "name",
-    #Field2({
+    {
       type_: Types.stringType,
       description: "some name",
-    }),
+    }->#Field2,
   )
   ->addField(
     "age",
-    #Field2({
+    {
       type_: Types.intType,
       description: "some age",
-    }),
+    }->#Field2,
   )
   ->make
 }
 
+let run = %raw("function(f) {return f()}")
+let run2 = %raw("function(f) {return f._fields()}")
+
+// Js.log(run(fields))
+
 let modelType = {
-  open Graphql.ModelType
   {
     name: "test",
     description: Some("my model"),
     interfaces: None,
     fields,
-  }->make
+  }->ModelType.make
 }
 
 let model = {
@@ -46,9 +56,9 @@ let model = {
     args: None,
     resolve: async (_obj, _args, _ctx) =>
       {
-        "age": 42,
-        "name": "test name",
-        "id": "test id",
+        age: 42,
+        name: "test name",
+        id: "test id",
       }->Js.Null.return,
   }->make
 }
