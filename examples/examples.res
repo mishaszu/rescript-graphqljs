@@ -57,10 +57,7 @@ let t = Js.Dict.fromArray([("test", model)])
 
 let query = {
   open Query
-  {
-    name: "query",
-    fields: t,
-  }->make
+  empty("testQ")->addField("testM", model)->make
 }
 
 let schema = {
@@ -68,13 +65,13 @@ let schema = {
   mutation: None,
 }->Schema.make
 
-let query = "query { test { id name age } }"
+let query = "query { testM { id name age } }"
 
 Self.make({schema, source: query})
 ->Js.Promise2.then(async v => {
-  let id = v["data"]["test"]["id"]
-  let name = v["data"]["test"]["name"]
-  let age = v["data"]["test"]["age"]
+  let id = v["data"]["testM"]["id"]
+  let name = v["data"]["testM"]["name"]
+  let age = v["data"]["testM"]["age"]
 
   equal(id, "test id")
   equal(name, "test name")
