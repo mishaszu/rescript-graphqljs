@@ -53,16 +53,13 @@ let model = {
     }->Js.Null.return,
 }->Model.make
 
-let t = Js.Dict.fromArray([("test", model)])
-
 let query = {
   open Query
   empty("testQ")->addField("testM", model)->make
 }
 
 let schema = {
-  query: Some(query),
-  mutation: None,
+  query: query,
 }->Schema.make
 
 let query = "query { testM { id name age } }"

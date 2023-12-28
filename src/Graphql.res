@@ -78,13 +78,15 @@ module Input = {
     },
     description: input.description->Js.Undefined.fromOption,
   }
-}
 
-module ArgumentConfig = {
-  type t = {
-    @as("type") type_: Types.t,
-    // defaultValue?: 'a,
-    description?: string,
+  let merge = (input1: Js.Dict.t<m>, key, input2: t<'a>): Js.Dict.t<m> => {
+    let input = make(input2)
+    input1->Js.Dict.set(key, input)
+    input1
+  }
+
+  let mergeMany = (input1: Js.Dict.t<m>, input2: Js.Dict.t<t<'a>>): Js.Dict.t<m> => {
+    input2->Js.Dict.entries->Js.Array2.reduce((accu, (key, curr)) => merge(accu, key, curr), input1)
   }
 }
 
@@ -95,7 +97,7 @@ module Field = {
     @as("type") type_: Types.t,
     description: Js.undefined<string>,
     deprecationReason: Js.undefined<string>,
-    args: Js.undefined<Js.Dict.t<ArgumentConfig.t>>,
+    args: Js.undefined<Js.Dict.t<Input.m>>,
     resolver: Js.undefined<resolver>,
   }
 
@@ -129,7 +131,7 @@ module Field = {
     type_: Types.t,
     deprecationReason?: string,
     description?: string,
-    args?: Js.Dict.t<ArgumentConfig.t>,
+    args?: Js.Dict.t<Input.m>,
     resolve?: Resolver.t<'source, 'args, 'ctx>,
   }
 
@@ -244,7 +246,7 @@ module Model = {
 
   type t<'source, 'args, 'ctx, 'data> = {
     @as("type") type_: Types.t,
-    args?: Js.Dict.t<ArgumentConfig.t>,
+    args?: Js.Dict.t<Input.m>,
     resolve: resolver<'source, 'args, 'ctx, 'data>,
   }
 
