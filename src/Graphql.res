@@ -48,7 +48,6 @@ module Input = {
   ]
 
   type t<'a> = {
-    name: string,
     type_: Types.t,
     defaultValue?: v<'a>,
     description?: string,
@@ -57,16 +56,26 @@ module Input = {
   type inputInternal
 
   type m = {
-    name: string,
-    type_: Types.t,
+    @as("type") type_: Types.t,
     defaultValue: Js.undefined<inputInternal>,
     description: Js.undefined<string>,
   }
 
   let make = (input: t<'a>): m => {
-    name: input.name,
     type_: input.type_,
-    defaultValue: input.defaultValue->Js.Undefined.fromOption->identity,
+    defaultValue: {
+      switch input.defaultValue {
+      | Some(v) =>
+        switch v {
+        | #String(v) => v->identity->Js.Option.some
+        | #Int(v) => v->identity->Js.Option.some
+        | #Float(v) => v->identity->Js.Option.some
+        | #Boolean(v) => v->identity->Js.Option.some
+        | #Custom(v) => v->identity->Js.Option.some
+        }
+      | None => None
+      }->Js.Undefined.fromOption
+    },
     description: input.description->Js.Undefined.fromOption,
   }
 }
@@ -113,7 +122,7 @@ module Field = {
     type_: Types.t,
     deprecationReason?: string,
     description: string,
-    resolve: option<Resolver.t<'source, 'args, 'ctx>>,
+    resolve?: Resolver.t<'source, 'args, 'ctx>,
   }
 
   type fieldFull<'source, 'args, 'ctx> = {
@@ -274,29 +283,47 @@ module Query = {
 }
 
 module Mutation = {
-  type t = Types.t
+  type m
 
-  type relayMutation<'input, 'ctx, 'data> = {
+  type t = {
     name: string,
-    description?: string,
-    deprecationReason?: string,
-    inputFields: Js.Dict.t<Input.m>,
-    outputFields: Js.Dict.t<Field.f>,
-    mutateAndGetPayload: ('input, 'ctx) => promise<'data>,
+    fields: Js.Dict.t<Model.m>,
   }
+
+  let empty = name => {name, fields: Js.Dict.empty()}
+
+  let addField = (mutation, key, field) => {
+    mutation.fields->Js.Dict.set(key, field)
+    mutation
+  }
+
+  module Internal = {
+    type t = {
+      name: string,
+      fields: Js.Dict.t<Model.m>,
+    }
+    @module("graphql") @new
+    external make: t => m = "GraphQLObjectType"
+  }
+
+  let make = (mutation: t): m =>
+    Internal.make({
+      name: mutation.name,
+      fields: mutation.fields,
+    })
 }
 
 module Schema = {
   type t
 
   type schemaConfig = {
-    query: option<Query.q>,
-    mutation: option<Mutation.t>,
+    query: Query.q,
+    mutation?: Mutation.m,
   }
 
   module Internal = {
     type schemaConfig__internal<'t, 'f> = {
-      query: Js.undefined<'t>,
+      query: 't,
       mutation: Js.undefined<'f>,
     }
 
@@ -306,7 +333,7 @@ module Schema = {
 
   let make = (config: schemaConfig) =>
     Internal.make__internal({
-      query: config.query->Js.Undefined.fromOption,
+      query: config.query,
       mutation: config.mutation->Js.Undefined.fromOption,
     })
 
