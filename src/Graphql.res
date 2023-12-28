@@ -35,6 +35,15 @@ module Types = {
   @module("graphql") external booleanType: t = "GraphQLBoolean"
 
   @module("graphql") @new external required: t => t = "GraphQLNonNull"
+  @module("graphql") @new external listType: t => t = "GraphQLList"
+
+  type enumValue<'a> = {value: 'a}
+
+  type enum<'a> = {
+    name: string,
+    values: Js.Dict.t<enumValue<'a>>,
+  }
+  @module("graphql") @new external enumType: enum<'a> => t = "GraphQLEnumType"
 }
 
 module Input = {
@@ -48,7 +57,7 @@ module Input = {
   ]
 
   type t<'a> = {
-    type_: Types.t,
+    @as("type") type_: Types.t,
     defaultValue?: v<'a>,
     description?: string,
   }
