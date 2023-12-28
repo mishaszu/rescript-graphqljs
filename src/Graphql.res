@@ -1,18 +1,27 @@
-open Helpers
-
-type graphQLString
-type graphQlObject
-
 // for integration with graphql-relay
 type interface
 type connectionArgs<'a>
+type outputType
 
-module Input = {
-  type t<'t> = {
-    name: string,
-    description: Js.undefined<string>,
-    interfaces: Js.undefined<unit => array<interface>>,
-    fields: 't,
+type resolverInfo
+type fieldNode
+type schema
+type fragmentDefinition
+type operationDefinition
+
+let identity: 'a => 'b = %raw("function(a) {return a}")
+
+module ResolverInfo = {
+  type t<'parent, 'variable, 'a> = {
+    fieldName: string,
+    fieldNodes: array<fieldNode>,
+    returnType: outputType,
+    parentType: 'parent,
+    schema: schema,
+    fragments: Js.Dict.t<fragmentDefinition>,
+    rootValue: 'a,
+    operation: operationDefinition,
+    variableValues: Js.Dict.t<'variable>,
   }
 }
 
@@ -28,15 +37,64 @@ module Types = {
   @module("graphql") @new external required: t => t = "GraphQLNonNull"
 }
 
+module Input = {
+  type v<'a> = @unwrap
+  [
+    | #String(string)
+    | #Int(int)
+    | #Float(float)
+    | #Boolean(bool)
+    | #Custom('a)
+  ]
+
+  type t<'a> = {
+    name: string,
+    type_: Types.t,
+    defaultValue?: v<'a>,
+    description?: string,
+  }
+
+  type inputInternal
+
+  type m = {
+    name: string,
+    type_: Types.t,
+    defaultValue: Js.undefined<inputInternal>,
+    description: Js.undefined<string>,
+  }
+
+  let make = (input: t<'a>): m => {
+    name: input.name,
+    type_: input.type_,
+    defaultValue: input.defaultValue->Js.Undefined.fromOption->identity,
+    description: input.description->Js.Undefined.fromOption,
+  }
+}
+
+module ArgumentConfig = {
+  type t = {
+    @as("type") type_: Types.t,
+    // defaultValue?: 'a,
+    description?: string,
+  }
+}
+
 module Field = {
-  type t<'source, 'args, 'ctx, 'a> = ('source, 'args, 'ctx) => 'a
+  type resolver
+
+  type f = {
+    @as("type") type_: Types.t,
+    description: Js.undefined<string>,
+    deprecationReason: Js.undefined<string>,
+    args: Js.undefined<Js.Dict.t<ArgumentConfig.t>>,
+    resolver: Js.undefined<resolver>,
+  }
 
   type resolverOutput
 
   module Resolver = {
+    // TODO: need to add ResolverInfo.t
     type t<'source, 'args, 'ctx> = ('source, 'args, 'ctx) => promise<Js.Null.t<resolverOutput>>
-
-    let identity: 'a => 'b = %raw("function(a) {return a}")
 
     let make = (r: option<('source, 'args, 'ctx) => 'a>): option<
       ('source, 'args, 'ctx) => promise<Js.Null.t<resolverOutput>>,
@@ -45,19 +103,25 @@ module Field = {
     }
   }
 
-  type field2 = {@as("type") type_: Types.t, description: string}
+  type field2 = {
+    @as("type") type_: Types.t,
+    description: string,
+    deprecationReason?: string,
+  }
 
   type field3<'source, 'args, 'ctx> = {
     type_: Types.t,
+    deprecationReason?: string,
     description: string,
     resolve: option<Resolver.t<'source, 'args, 'ctx>>,
   }
 
   type fieldFull<'source, 'args, 'ctx> = {
     type_: Types.t,
-    description: option<string>,
-    args: option<connectionArgs<'args>>,
-    resolve: option<Resolver.t<'source, 'args, 'ctx>>,
+    deprecationReason?: string,
+    description?: string,
+    args?: Js.Dict.t<ArgumentConfig.t>,
+    resolve?: Resolver.t<'source, 'args, 'ctx>,
   }
 
   type field<'source, 'args, 'ctx> = @unwrap
@@ -67,20 +131,11 @@ module Field = {
     | #FieldFull(fieldFull<'source, 'args, 'ctx>)
   ]
 
-  type fieldCallback<'source, 'args, 'ctx> = ('source, 'args, 'ctx) => field<'source, 'args, 'ctx>
-
-  type newField<'source, 'args, 'ctx> = [
-    | #Field2(field2)
-    | #Field3(field3<'source, 'args, 'ctx>)
-    | #FieldFull(fieldFull<'source, 'args, 'ctx>)
-    | #Callback(fieldCallback<'source, 'args, 'ctx>)
-  ]
-
-  type fields<'source, 'args, 'ctx> = Js.Dict.t<newField<'source, 'args, 'ctx>>
+  type fields<'source, 'args, 'ctx> = Js.Dict.t<field<'source, 'args, 'ctx>>
 
   let empty = (): fields<'source, 'args, 'ctx> => Js.Dict.empty()
 
-  let addField = (fields, key, field: newField<'source, 'args, 'ctx>): fields<
+  let addField = (fields, key, field: field<'source, 'args, 'ctx>): fields<
     'source,
     'args,
     'ctx,
@@ -89,103 +144,82 @@ module Field = {
     fields
   }
 
-  module Internal = {
-    type field3__internal<'source, 'args, 'ctx> = {
-      @as("type") type_: Types.t,
-      description: string,
-      resolve: Js.undefined<Resolver.t<'source, 'args, 'ctx>>,
-    }
+  let makeField = (f: field<'source, 'args, 'ctx>): f => {
+    switch f {
+    | #Field2(f) => {
+        type_: f.type_,
+        description: f.description->Js.Undefined.return,
+        deprecationReason: f.deprecationReason->Js.Undefined.fromOption,
+        args: None->Js.Undefined.fromOption,
+        resolver: None->Js.Undefined.fromOption,
+      }
 
-    type fieldFull__internal<'source, 'args, 'ctx> = {
-      @as("type") type_: Types.t,
-      description: Js.undefined<string>,
-      args: Js.undefined<connectionArgs<'args>>,
-      resolve: Js.undefined<Resolver.t<'source, 'args, 'ctx>>,
-    }
+    | #Field3(f) => {
+        type_: f.type_,
+        description: f.description->Js.Undefined.return,
+        deprecationReason: f.deprecationReason->Js.Undefined.fromOption,
+        args: None->Js.Undefined.fromOption,
+        resolver: f.resolve->Js.Option.map((. a) => identity(a), _)->Js.Undefined.fromOption,
+      }
 
-    let makeField = (key, field: field<'source, 'args, 'ctx>) => {
-      switch field {
-      | #Field2(f) => jsCreateObj(key, f)
-      | #Field3(f) => {
-          let i: field3__internal<'source, 'args, 'ctx> = {
-            type_: f.type_,
-            description: f.description,
-            resolve: f.resolve->Js.Undefined.fromOption,
-          }
-          jsCreateObj(key, i)
-        }
-      | #FieldFull(f) => {
-          let i: fieldFull__internal<'source, 'args, 'ctx> = {
-            type_: f.type_,
-            description: f.description->Js.Undefined.fromOption,
-            args: f.args->Js.Undefined.fromOption,
-            resolve: f.resolve->Js.Undefined.fromOption,
-          }
-          jsCreateObj(key, i)
-        }
+    | #FieldFull(f) => {
+        type_: f.type_,
+        description: f.description->Js.Undefined.fromOption,
+        deprecationReason: f.deprecationReason->Js.Undefined.fromOption,
+        args: f.args->Js.Undefined.fromOption,
+        resolver: f.resolve->Js.Option.map((. a) => identity(a), _)->Js.Undefined.fromOption,
       }
     }
   }
 
-  let make = (fields: fields<'source, 'args, 'ctx>): t<'source, 'args, 'ctx, 'a> => {
-    let i = (obj, args, ctx) => {
-      let jsObj = Js.Obj.empty()
-      fields
-      ->Js.Dict.entries
-      ->Js.Array2.forEach(((key, field)) => {
-        switch field {
-        | #Field2(f) => jsObj->Js.Obj.assign(jsCreateObj(key, f))->ignore
-        | #Field3(f) => {
-            let i: Internal.field3__internal<'source, 'args, 'ctx> = {
-              type_: f.type_,
-              description: f.description,
-              resolve: f.resolve->Js.Undefined.fromOption,
-            }
-            jsObj->Js.Obj.assign(jsCreateObj(key, i))->ignore
-          }
-        | #FieldFull(f) => {
-            let i: Internal.fieldFull__internal<'source, 'args, 'ctx> = {
-              type_: f.type_,
-              description: f.description->Js.Undefined.fromOption,
-              args: f.args->Js.Undefined.fromOption,
-              resolve: f.resolve->Js.Undefined.fromOption,
-            }
-            jsObj->Js.Obj.assign(jsCreateObj(key, i))->ignore
-          }
-        | #Callback(f) => {
-            let i = Internal.makeField(key, f(obj, args, ctx))
-            jsObj->Js.Obj.assign(i)->ignore
-          }
-        }
-      })
-      ->ignore
-      jsObj
-    }
-    i->Resolver.identity
+  let make = (fields: fields<'source, 'args, 'ctx>): Js.Dict.t<f> => {
+    let dict = Js.Dict.empty()
+    fields
+    ->Js.Dict.entries
+    ->Js.Array2.forEach(((key, field)) => {
+      dict->Js.Dict.set(key, makeField(field))
+    })
+    ->ignore
+    dict
   }
 }
 
-module ModelType = {
-  type m<'source, 'args, 'ctx, 'a> = {
+module Object = {
+  type t
+
+  type p<'source, 'args, 'ctx, 'data> = {
     name: string,
-    description: option<string>,
-    interfaces: option<unit => array<interface>>,
-    fields: Field.t<'source, 'args, 'ctx, 'a>,
+    interfaces?: array<interface>,
+    fields: Js.Dict.t<Field.f>,
+    isTypeOf?: ('source, Js.undefined<resolverInfo>) => bool,
+    description?: string,
+  }
+
+  @module("graphql") @new
+  external make: p<'source, 'args, 'ctx, 'data> => t = "GraphQLObjectType"
+}
+
+module ModelType = {
+  type m<'source, 'args, 'ctx, 'data> = {
+    name: string,
+    description?: string,
+    interfaces?: unit => array<interface>,
+    fields: Js.Dict.t<Field.f>,
   }
 
   module Internal = {
-    type t<'source, 'args, 'ctx, 'a> = {
+    type t<'source, 'args, 'ctx, 'data> = {
       name: string,
       description: Js.undefined<string>,
       interfaces: Js.undefined<unit => array<interface>>,
-      fields: Field.t<'source, 'args, 'ctx, 'a>,
+      fields: Js.Dict.t<Field.f>,
     }
 
     @module("graphql") @new
-    external newGraphqlObjectType: t<'source, 'args, 'ctx, 'a> => Types.t = "GraphQLObjectType"
+    external newGraphqlObjectType: t<'source, 'args, 'ctx, 'data> => Types.t = "GraphQLObjectType"
   }
 
-  let make = (model: m<'source, 'args, 'ctx, 'a>) =>
+  let make = (model: m<'source, 'args, 'ctx, 'data>) =>
     Internal.newGraphqlObjectType({
       name: model.name,
       description: model.description->Js.Undefined.fromOption,
@@ -197,15 +231,15 @@ module ModelType = {
 module Model = {
   type m
 
-  type resolver<'source, 'args, 'ctx, 'a> = ('source, 'args, 'ctx) => promise<Js.Null.t<'a>>
+  type resolver<'source, 'args, 'ctx, 'data> = ('source, 'args, 'ctx) => promise<Js.Null.t<'data>>
 
-  type t<'source, 'args, 'ctx, 'a> = {
+  type t<'source, 'args, 'ctx, 'data> = {
     @as("type") type_: Types.t,
-    args: option<connectionArgs<'args>>,
-    resolve: resolver<'source, 'args, 'ctx, 'a>,
+    args?: Js.Dict.t<ArgumentConfig.t>,
+    resolve: resolver<'source, 'args, 'ctx, 'data>,
   }
 
-  let make: t<'source, 'args, 'ctx, 'a> => m = %raw("function(v) {return v}")
+  let make: t<'source, 'args, 'ctx, 'data> => m = %raw("function(v) {return v}")
 }
 
 module Query = {
@@ -226,7 +260,7 @@ module Query = {
   module Internal = {
     type t = {
       name: string,
-      fields: unit => Js.Dict.t<Model.m>,
+      fields: Js.Dict.t<Model.m>,
     }
     @module("graphql") @new
     external make: t => q = "GraphQLObjectType"
@@ -235,19 +269,20 @@ module Query = {
   let make = (query: t): q =>
     Internal.make({
       name: query.name,
-      fields: () => query.fields,
+      fields: query.fields,
     })
 }
 
 module Mutation = {
-  type m
+  type t = Types.t
 
-  type relayMutation<'inputDef, 'outputDef, 'output, 'ctx, 'd> = {
+  type relayMutation<'input, 'ctx, 'data> = {
     name: string,
-    description: Js.undefined<string>,
-    inputFields: Js.Dict.t<'inputDef>,
-    outputFields: 'outputDef,
-    mutateAndGetPayload: ('output, 'ctx) => 'd,
+    description?: string,
+    deprecationReason?: string,
+    inputFields: Js.Dict.t<Input.m>,
+    outputFields: Js.Dict.t<Field.f>,
+    mutateAndGetPayload: ('input, 'ctx) => promise<'data>,
   }
 }
 
@@ -256,7 +291,7 @@ module Schema = {
 
   type schemaConfig = {
     query: option<Query.q>,
-    mutation: option<Mutation.m>,
+    mutation: option<Mutation.t>,
   }
 
   module Internal = {

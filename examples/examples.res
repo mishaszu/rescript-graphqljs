@@ -8,7 +8,7 @@ type testFields = {
   age: int,
 }
 
-let fields: Graphql.Field.t<unit, unit, unit, testFields> = {
+let fields = {
   open Graphql.Field
   empty()
   ->addField(
@@ -35,33 +35,23 @@ let fields: Graphql.Field.t<unit, unit, unit, testFields> = {
   ->make
 }
 
-let run = %raw("function(f) {return f()}")
-let run2 = %raw("function(f) {return f._fields()}")
-
-// Js.log(run(fields))
-
 let modelType = {
   {
     name: "test",
-    description: Some("my model"),
-    interfaces: None,
+    description: "my model",
     fields,
   }->ModelType.make
 }
 
 let model = {
-  open Graphql.Model
-  {
-    type_: modelType,
-    args: None,
-    resolve: async (_obj, _args, _ctx) =>
-      {
-        age: 42,
-        name: "test name",
-        id: "test id",
-      }->Js.Null.return,
-  }->make
-}
+  type_: modelType,
+  resolve: async (_obj, _args, _ctx) =>
+    {
+      age: 42,
+      name: "test name",
+      id: "test id",
+    }->Js.Null.return,
+}->Model.make
 
 let t = Js.Dict.fromArray([("test", model)])
 
