@@ -248,6 +248,52 @@ module ModelType = {
     })
 }
 
+module DataResolver = {
+  type dataResponse<'data, 'error> = {
+    data: Js.null<'data>,
+    error: Js.null<'error>,
+  }
+
+  type t<'source, 'args, 'ctx, 'data, 'error> = (
+    'source,
+    'args,
+    'ctx,
+  ) => promise<dataResponse<'data, 'error>>
+
+  let make = (resolver: t<'source, 'args, 'ctx, 'data, 'error>): Field.Resolver.t<
+    'source,
+    'args,
+    'ctx,
+  > => identity(resolver)
+
+  let dataFieldMake = ()
+
+  let responseTypeMake = (name, description: option<string>, dataType, errorType) =>
+    {
+      name,
+      description: switch description {
+      | Some(d) => d
+      | None => "Response wrapper type for " ++ name
+      },
+      fields: Field.empty()
+      ->Field.addField(
+        "data",
+        {
+          type_: dataType,
+          description: "Data field wraps OK response",
+        }->#Field2,
+      )
+      ->Field.addField(
+        "error",
+        {
+          type_: errorType,
+          description: "Error field wraps error response",
+        }->#Field2,
+      )
+      ->Field.make,
+    }->ModelType.make
+}
+
 module Model = {
   type m
 
@@ -255,11 +301,29 @@ module Model = {
 
   type t<'source, 'args, 'ctx, 'data> = {
     @as("type") type_: Types.t,
+    description?: string,
     args?: Js.Dict.t<Input.m>,
     resolve: resolver<'source, 'args, 'ctx, 'data>,
   }
 
-  let make: t<'source, 'args, 'ctx, 'data> => m = %raw("function(v) {return v}")
+  module Internal = {
+    type t<'source, 'args, 'ctx, 'data> = {
+      @as("type") type_: Types.t,
+      description: Js.undefined<string>,
+      args: Js.undefined<Js.Dict.t<Input.m>>,
+      resolve: resolver<'source, 'args, 'ctx, 'data>,
+    }
+  }
+
+  let make = (model: t<'source, 'args, 'ctx, 'data>): m => {
+    let value: Internal.t<'source, 'args, 'ctx, 'data> = {
+      type_: model.type_,
+      description: model.description->Js.Undefined.fromOption,
+      args: model.args->Js.Undefined.fromOption,
+      resolve: model.resolve,
+    }
+    value->identity
+  }
 }
 
 module Query = {
