@@ -268,7 +268,7 @@ module DataResolver = {
 
   let dataFieldMake = ()
 
-  let responseTypeMake = (name, description: option<string>, dataType, errorType) =>
+  let responseTypeMake = (~name, ~description=?, ~dataType, ~errorType) =>
     {
       name,
       description: switch description {
