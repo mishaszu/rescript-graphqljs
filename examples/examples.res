@@ -45,7 +45,7 @@ let modelType = {
 
 let model = {
   type_: modelType,
-  resolve: async (_obj, _args, _ctx) =>
+  resolve: async (_obj, _args, _ctx: unit) =>
     {
       age: 42,
       name: "test name",

@@ -9,7 +9,7 @@ type schema
 type fragmentDefinition
 type operationDefinition
 
-let identity: 'a => 'b = %raw("function(a) {return a}")
+let unsafeIdentity: 'a => 'b = %raw("function(a) {return a}")
 
 module ResolverInfo = {
   type t<'parent, 'variable, 'a> = {
@@ -76,11 +76,11 @@ module Input = {
       switch input.defaultValue {
       | Some(v) =>
         switch v {
-        | #String(v) => v->identity->Js.Option.some
-        | #Int(v) => v->identity->Js.Option.some
-        | #Float(v) => v->identity->Js.Option.some
-        | #Boolean(v) => v->identity->Js.Option.some
-        | #Custom(v) => v->identity->Js.Option.some
+        | #String(v) => v->unsafeIdentity->Js.Option.some
+        | #Int(v) => v->unsafeIdentity->Js.Option.some
+        | #Float(v) => v->unsafeIdentity->Js.Option.some
+        | #Boolean(v) => v->unsafeIdentity->Js.Option.some
+        | #Custom(v) => v->unsafeIdentity->Js.Option.some
         }
       | None => None
       }->Js.Undefined.fromOption
@@ -119,7 +119,7 @@ module Field = {
     let make = (r: option<('source, 'args, 'ctx) => 'a>): option<
       ('source, 'args, 'ctx) => promise<Js.Null.t<resolverOutput>>,
     > => {
-      Js.Option.map((. i) => identity(i), r)
+      Js.Option.map((. i) => unsafeIdentity(i), r)
     }
   }
 
@@ -179,7 +179,7 @@ module Field = {
         description: f.description->Js.Undefined.return,
         deprecationReason: f.deprecationReason->Js.Undefined.fromOption,
         args: None->Js.Undefined.fromOption,
-        resolver: f.resolve->Js.Option.map((. a) => identity(a), _)->Js.Undefined.fromOption,
+        resolver: f.resolve->Js.Option.map((. a) => unsafeIdentity(a), _)->Js.Undefined.fromOption,
       }
 
     | #FieldFull(f) => {
@@ -187,7 +187,7 @@ module Field = {
         description: f.description->Js.Undefined.fromOption,
         deprecationReason: f.deprecationReason->Js.Undefined.fromOption,
         args: f.args->Js.Undefined.fromOption,
-        resolver: f.resolve->Js.Option.map((. a) => identity(a), _)->Js.Undefined.fromOption,
+        resolver: f.resolve->Js.Option.map((. a) => unsafeIdentity(a), _)->Js.Undefined.fromOption,
       }
     }
   }
@@ -264,7 +264,7 @@ module DataResolver = {
     'source,
     'args,
     'ctx,
-  > => identity(resolver)
+  > => unsafeIdentity(resolver)
 
   let dataFieldMake = ()
 
@@ -295,7 +295,7 @@ module DataResolver = {
 }
 
 module Model = {
-  type m
+  type m<'ctx>
 
   type resolver<'source, 'args, 'ctx, 'data> = ('source, 'args, 'ctx) => promise<Js.Null.t<'data>>
 
@@ -315,23 +315,23 @@ module Model = {
     }
   }
 
-  let make = (model: t<'source, 'args, 'ctx, 'data>): m => {
+  let make = (model: t<'source, 'args, 'ctx, 'data>): m<'ctx> => {
     let value: Internal.t<'source, 'args, 'ctx, 'data> = {
       type_: model.type_,
       description: model.description->Js.Undefined.fromOption,
       args: model.args->Js.Undefined.fromOption,
       resolve: model.resolve,
     }
-    value->identity
+    value->unsafeIdentity
   }
 }
 
 module Query = {
-  type q
+  type q<'ctx>
 
-  type t = {
+  type t<'ctx> = {
     name: string,
-    fields: Js.Dict.t<Model.m>,
+    fields: Js.Dict.t<Model.m<'ctx>>,
   }
 
   let empty = name => {name, fields: Js.Dict.empty()}
@@ -342,15 +342,15 @@ module Query = {
   }
 
   module Internal = {
-    type t = {
+    type t<'ctx> = {
       name: string,
-      fields: Js.Dict.t<Model.m>,
+      fields: Js.Dict.t<Model.m<'ctx>>,
     }
     @module("graphql") @new
-    external make: t => q = "GraphQLObjectType"
+    external make: t<'ctx> => q<'ctx> = "GraphQLObjectType"
   }
 
-  let make = (query: t): q =>
+  let make = (query: t<'ctx>): q<'ctx> =>
     Internal.make({
       name: query.name,
       fields: query.fields,
@@ -358,11 +358,11 @@ module Query = {
 }
 
 module Mutation = {
-  type m
+  type m<'ctx>
 
-  type t = {
+  type t<'ctx> = {
     name: string,
-    fields: Js.Dict.t<Model.m>,
+    fields: Js.Dict.t<Model.m<'ctx>>,
   }
 
   let empty = name => {name, fields: Js.Dict.empty()}
@@ -373,15 +373,15 @@ module Mutation = {
   }
 
   module Internal = {
-    type t = {
+    type t<'ctx> = {
       name: string,
-      fields: Js.Dict.t<Model.m>,
+      fields: Js.Dict.t<Model.m<'ctx>>,
     }
     @module("graphql") @new
-    external make: t => m = "GraphQLObjectType"
+    external make: t<'ctx> => m<'ctx> = "GraphQLObjectType"
   }
 
-  let make = (mutation: t): m =>
+  let make = (mutation: t<'ctx>): m<'ctx> =>
     Internal.make({
       name: mutation.name,
       fields: mutation.fields,
@@ -391,9 +391,9 @@ module Mutation = {
 module Schema = {
   type t
 
-  type schemaConfig = {
-    query: Query.q,
-    mutation?: Mutation.m,
+  type schemaConfig<'ctx> = {
+    query: Query.q<'ctx>,
+    mutation?: Mutation.m<'ctx>,
   }
 
   module Internal = {
@@ -406,7 +406,7 @@ module Schema = {
     external make__internal: schemaConfig__internal<'q, 'm> => t = "GraphQLSchema"
   }
 
-  let make = (config: schemaConfig) =>
+  let make = (config: schemaConfig<'ctx>) =>
     Internal.make__internal({
       query: config.query,
       mutation: config.mutation->Js.Undefined.fromOption,
