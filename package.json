@@ -22,9 +22,5 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
-  },
-  "dependencies": {
-    "graphql": "^16.8.1",
-    "rescript-helpers": "file:../rescript-helpers"
   }
 }
