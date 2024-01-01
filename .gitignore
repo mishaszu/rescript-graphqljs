@@ -1,5 +1,4 @@
 /lib
-*.bs.js
 # Logs
 logs
 *.log
