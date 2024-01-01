@@ -268,7 +268,8 @@ module DataResolver = {
 
   let dataFieldMake = ()
 
-  let responseTypeMake = (~name, ~description=?, ~dataType, ~errorType) =>
+  // TODO: remove last positional argument when Rescript version 11 is available
+  let responseTypeMake = (~name, ~description=?, ~dataType, ~errorType, ()) =>
     {
       name,
       description: switch description {
