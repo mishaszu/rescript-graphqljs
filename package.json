@@ -1,6 +1,6 @@
 {
   "name": "rescript-graphqljs",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Rescript wrapper over graphqljs library",
   "main": "./src/Graphql.res",
   "scripts": {
