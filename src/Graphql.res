@@ -9,8 +9,6 @@ type schema
 type fragmentDefinition
 type operationDefinition
 
-let unsafeIdentity: 'a => 'b = %raw("function(a) {return a}")
-
 module ResolverInfo = {
   type t<'parent, 'variable, 'a> = {
     fieldName: string,
@@ -76,11 +74,11 @@ module Input = {
       switch input.defaultValue {
       | Some(v) =>
         switch v {
-        | #String(v) => v->unsafeIdentity->Js.Option.some
-        | #Int(v) => v->unsafeIdentity->Js.Option.some
-        | #Float(v) => v->unsafeIdentity->Js.Option.some
-        | #Boolean(v) => v->unsafeIdentity->Js.Option.some
-        | #Custom(v) => v->unsafeIdentity->Js.Option.some
+        | #String(v) => v->Obj.magic->Js.Option.some
+        | #Int(v) => v->Obj.magic->Js.Option.some
+        | #Float(v) => v->Obj.magic->Js.Option.some
+        | #Boolean(v) => v->Obj.magic->Js.Option.some
+        | #Custom(v) => v->Obj.magic->Js.Option.some
         }
       | None => None
       }->Js.Undefined.fromOption
@@ -119,7 +117,7 @@ module Field = {
     let make = (r: option<('source, 'args, 'ctx) => 'a>): option<
       ('source, 'args, 'ctx) => promise<Js.Null.t<resolverOutput>>,
     > => {
-      Js.Option.map((. i) => unsafeIdentity(i), r)
+      Js.Option.map((. i) => Obj.magic(i), r)
     }
   }
 
@@ -179,7 +177,7 @@ module Field = {
         description: f.description->Js.Undefined.return,
         deprecationReason: f.deprecationReason->Js.Undefined.fromOption,
         args: None->Js.Undefined.fromOption,
-        resolver: f.resolve->Js.Option.map((. a) => unsafeIdentity(a), _)->Js.Undefined.fromOption,
+        resolver: f.resolve->Js.Option.map((. a) => Obj.magic(a), _)->Js.Undefined.fromOption,
       }
 
     | #FieldFull(f) => {
@@ -187,7 +185,7 @@ module Field = {
         description: f.description->Js.Undefined.fromOption,
         deprecationReason: f.deprecationReason->Js.Undefined.fromOption,
         args: f.args->Js.Undefined.fromOption,
-        resolver: f.resolve->Js.Option.map((. a) => unsafeIdentity(a), _)->Js.Undefined.fromOption,
+        resolver: f.resolve->Js.Option.map((. a) => Obj.magic(a), _)->Js.Undefined.fromOption,
       }
     }
   }
@@ -264,12 +262,11 @@ module DataResolver = {
     'source,
     'args,
     'ctx,
-  > => unsafeIdentity(resolver)
+  > => Obj.magic(resolver)
 
   let dataFieldMake = ()
 
-  // TODO: remove last positional argument when Rescript version 11 is available
-  let responseTypeMake = (~name, ~description=?, ~dataType, ~errorType, ()) =>
+  let responseTypeMake = (~name, ~description=?, ~dataType, ~errorType) =>
     {
       name,
       description: switch description {
@@ -323,7 +320,7 @@ module Model = {
       args: model.args->Js.Undefined.fromOption,
       resolve: model.resolve,
     }
-    value->unsafeIdentity
+    value->Obj.magic
   }
 }
 

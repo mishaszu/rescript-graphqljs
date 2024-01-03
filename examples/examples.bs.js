@@ -6,7 +6,7 @@ var Graphql$1 = require("graphql");
 var Js_promise2 = require("rescript/lib/js/js_promise2.js");
 var Strict = require("node:assert/strict");
 
-var fields = Graphql.Field.make(Graphql.Field.addField(Graphql.Field.addField(Graphql.Field.addField(Graphql.Field.empty(undefined), "id", {
+var fields = Graphql.Field.make(Graphql.Field.addField(Graphql.Field.addField(Graphql.Field.addField(Graphql.Field.empty(), "id", {
                   NAME: "Field2",
                   VAL: {
                     type: Graphql$1.GraphQLID,

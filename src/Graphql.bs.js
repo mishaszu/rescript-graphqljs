@@ -6,8 +6,6 @@ var Graphql = require("graphql");
 var Js_option = require("rescript/lib/js/js_option.js");
 var Js_undefined = require("rescript/lib/js/js_undefined.js");
 
-var unsafeIdentity = (function(a) {return a});
-
 var ResolverInfo = {};
 
 var Types = {};
@@ -16,7 +14,7 @@ function make(input) {
   var v = input.defaultValue;
   return {
           type: input.type,
-          defaultValue: Js_undefined.fromOption(v !== undefined ? Js_option.some(unsafeIdentity(v.VAL)) : undefined),
+          defaultValue: Js_undefined.fromOption(v !== undefined ? Js_option.some(v.VAL) : undefined),
           description: Js_undefined.fromOption(input.description)
         };
 }
@@ -40,14 +38,16 @@ var Input = {
 };
 
 function make$1(r) {
-  return Js_option.map(unsafeIdentity, r);
+  return Js_option.map((function (i) {
+                return i;
+              }), r);
 }
 
 var Resolver = {
   make: make$1
 };
 
-function empty(param) {
+function empty() {
   return {};
 }
 
@@ -70,23 +70,29 @@ function makeField(f) {
   }
   if (variant === "Field3") {
     var f$2 = f.VAL;
-    var __x = f$2.resolve;
     return {
             type: f$2.type_,
             description: f$2.description,
             deprecationReason: Js_undefined.fromOption(f$2.deprecationReason),
             args: Js_undefined.fromOption(undefined),
-            resolver: Js_undefined.fromOption(Js_option.map(unsafeIdentity, __x))
+            resolver: Js_undefined.fromOption((function (__x) {
+                      return Js_option.map((function (a) {
+                                    return a;
+                                  }), __x);
+                    })(f$2.resolve))
           };
   }
   var f$3 = f.VAL;
-  var __x$1 = f$3.resolve;
   return {
           type: f$3.type_,
           description: Js_undefined.fromOption(f$3.description),
           deprecationReason: Js_undefined.fromOption(f$3.deprecationReason),
           args: Js_undefined.fromOption(f$3.args),
-          resolver: Js_undefined.fromOption(Js_option.map(unsafeIdentity, __x$1))
+          resolver: Js_undefined.fromOption((function (__x) {
+                    return Js_option.map((function (a) {
+                                  return a;
+                                }), __x);
+                  })(f$3.resolve))
         };
 }
 
@@ -124,9 +130,11 @@ var ModelType = {
   make: make$3
 };
 
-var make$4 = unsafeIdentity;
+function make$4(resolver) {
+  return resolver;
+}
 
-function responseTypeMake(name, description, dataType, errorType, param) {
+function responseTypeMake(name, description, dataType, errorType) {
   return make$3({
               name: name,
               description: description !== undefined ? description : "Response wrapper type for " + name,
@@ -155,12 +163,12 @@ var DataResolver = {
 var Internal$1 = {};
 
 function make$5(model) {
-  return unsafeIdentity({
-              type: model.type,
-              description: Js_undefined.fromOption(model.description),
-              args: Js_undefined.fromOption(model.args),
-              resolve: model.resolve
-            });
+  return {
+          type: model.type,
+          description: Js_undefined.fromOption(model.description),
+          args: Js_undefined.fromOption(model.args),
+          resolve: model.resolve
+        };
 }
 
 var Model = {
@@ -243,7 +251,6 @@ var Schema = {
 
 var Self = {};
 
-exports.unsafeIdentity = unsafeIdentity;
 exports.ResolverInfo = ResolverInfo;
 exports.Types = Types;
 exports.Input = Input;

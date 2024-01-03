@@ -17,5 +17,5 @@
     "in-source": true
   },
   "suffix": ".bs.js",
-  "bs-dependencies": ["rescript-helpers"]
+  "bs-dependencies": []
 }
