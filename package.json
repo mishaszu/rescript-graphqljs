@@ -18,12 +18,9 @@
   "license": "Apache License, Version 2.0",
   "peerDependencies": {
     "graphql": "^16.8.1",
-    "rescript": "^10.1.4"
+    "rescript": "^11.0.0-rc.8"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
-  },
-  "dependencies": {
-    "rescript": "^11.0.0-rc.8"
   }
 }
